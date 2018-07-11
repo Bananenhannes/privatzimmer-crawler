@@ -78,7 +78,7 @@ def send_mail(offer_list):
 
     message = "Subject: {} neue Privatzimmer Angebote\n\n".format(len(offer_list))
     for offer in offer_list:
-        message += "Neues Zimmer in {}! {}, {}€, {}qm. Link: {} \n\n".format(offer["district"], offer["rent_type"],
+        message += "Neues Zimmer in {}! {}, {}€, {}qm.\nLink: {} \n\n".format(offer["district"], offer["rent_type"],
                                                                              offer["rent_cost"], offer["size"], offer["link"])
     server.sendmail(Config.mail_address, Config.mail_address, message)
     server.quit()
