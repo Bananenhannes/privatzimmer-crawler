@@ -1,3 +1,5 @@
+#!/usr/bin/python
+# coding=utf-8
 import requests
 from lxml import html
 from twython import Twython
@@ -95,6 +97,7 @@ if current_offers ==[]:
 while True:
     # fetch new offers
     new_offers = get_new_offers(current_offers)
+    print("Found {} new offers".format(len(new_offers)))
     # store them
     write_to_disk(Filename, new_offers+current_offers)
     # distribute to twitter and mail
