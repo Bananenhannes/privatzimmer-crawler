@@ -1,18 +1,20 @@
 import requests
 from lxml import html
 from twython import Twython
-import TwitterKeys
+import Config
 from time import sleep
 import json
 import os.path
+import smtplib
 
 Filename = "crawlerdata"
 refresh_time = 300
 
-# Get the HTML Doc and parse it
 
-
+# Fetches the website and extracts the offers from the table.
+# If an old offer list is passed as the argument, only offers which are not contained in the list yet will be returned.
 def get_new_offers(old_offers):
+    # Get the website and extract the tables
     page = requests.get("http://www.studentenwerk-muenchen.de/wohnen/privatzimmervermittlung/angebote/")
     tree = html.fromstring(page.content)
     table_muenchen, table_freising, table_rosenheim = tree.xpath("//table/tbody")
@@ -39,12 +41,14 @@ def get_new_offers(old_offers):
     return new_offers
 
 
+# write the offer list to the specified path
 def write_to_disk(path, offer_list):
     f = open(path, "w")
     f.write(json.dumps(offer_list))
     f.close()
 
 
+# reads an existing offer list from the given path
 def read_from_disk(path):
     if os.path.exists(path):
         f = open(path, "r")
@@ -56,13 +60,28 @@ def read_from_disk(path):
     return offer_list
 
 
+# Uses the twitter API to post new offers
 def twitter_post(offer_list):
     for offer in offer_list:
         tweet = "Neues Zimmer in {}! {}, {}€, {}qm. Link: {}".format(offer["district"], offer["rent_type"],
                                                                     offer["rent_cost"], offer["size"], offer["link"])
-        api = Twython(TwitterKeys.apiKey, TwitterKeys.apiSecret, TwitterKeys.accessToken, TwitterKeys.accessTokenSecret)
+        api = Twython(Config.apiKey, Config.apiSecret, Config.accessToken, Config.accessTokenSecret)
         api.update_status(status=tweet)
         sleep(5)
+
+
+# Sends new offers via mail
+def send_mail(offer_list):
+    server = smtplib.SMTP(Config.smtpserver, 587)
+    server.starttls()
+    server.login(Config.mail_address, Config.mail_password)
+
+    message = "Subject: {} neue Privatzimmer Angebote\n\n".format(len(offer_list))
+    for offer in offer_list:
+        message += "Neues Zimmer in {}! {}, {}€, {}qm. Link: {} \n\n".format(offer["district"], offer["rent_type"],
+                                                                             offer["rent_cost"], offer["size"], offer["link"])
+    server.sendmail(Config.mail_address, Config.mail_address, message)
+    server.quit()
 
 
 # Try to load existing offers from file
@@ -74,9 +93,15 @@ if current_offers ==[]:
 
 # Main loop
 while True:
+    # fetch new offers
     new_offers = get_new_offers(current_offers)
+    # store them
     write_to_disk(Filename, new_offers+current_offers)
-    twitter_post(new_offers)
+    # distribute to twitter and mail
+    if len(new_offers) > 0:
+        twitter_post(new_offers)
+        send_mail(new_offers)
+    # update offer list
     current_offers = new_offers + current_offers
 
     sleep(refresh_time)
